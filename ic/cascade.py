@@ -44,6 +44,9 @@ class CascadeInput(NamedNode):
                 return True
         return False
 
+    def get_capacity(self):
+        return sum(o.transistor.canal_width for o in self.outputs)
+
 
 class CascadeInputs:
     def __init__(self, cascade: 'Cascade', inputs: Dict[str, Iterable[int]] = None):
@@ -123,7 +126,7 @@ class Cascade:
 
     def out_capacity(self):
         '''сумма ширин каналов тразисторов, подключенных к выходу каскада.'''
-        pass
+        return sum(o.get_capacity() for o in self.output.outputs)
 
     def _connect_transistors(self):
         self._validate_scheme()

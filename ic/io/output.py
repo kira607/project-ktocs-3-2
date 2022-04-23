@@ -17,3 +17,5 @@ class Output(NamedNode):
     def is_connected_to_output(self):
         return True
 
+    def get_capacity(self):
+        return sum(gate.transistor.canal_width for gate in self._connected.outputs)

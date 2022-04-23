@@ -2,6 +2,7 @@ import logging
 
 from ic import IC, Cascade
 from ic.io import Input, Output
+from ic.table import Table
 from ic.transistor import Transistor
 
 logging.basicConfig(format='%(message)s', level=logging.DEBUG)
@@ -99,6 +100,11 @@ ic = IC(
 
 def main():
     print(ic.get_table())
+    table = Table(2)
+    table.set_header('Cascade', 'out capacity')
+    for cas in ic.cascades():
+        table.add_row(str(cas), cas.out_capacity())
+    print(table.render())
 
 
 if __name__ == '__main__':
