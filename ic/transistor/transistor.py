@@ -1,26 +1,56 @@
-from typing import Iterable
-
-from ic.io import Input
-from ic.signal import SignalAcceptor, SignalProducer, Signal
-
+from ic.node import Node
 from .transistor_type import TransistorType, TransistorTypeT
-from ..signal._base import SignalHolder
 
 
-class Source(SignalAcceptor):
-    def __init__(self, transistor: 'Transistor', *inputs: SignalHolder):
-        super().__init__(inputs=inputs)
-        self._transistor = transistor
+class Source(Node):
 
-    def update(self, parent: SignalHolder):
-        super().update(parent)
-        self._transistor.update()
+    _settings = dict(
+        outputs=False,
+    )
+
+    def __init__(self, transistor: 'Transistor', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transistor = transistor
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} {self.transistor}={self.signal}>'
 
 
-class Drain(SignalProducer):
-    def __init__(self, transistor: 'Transistor'):
-        self._transistor = transistor
-        super().__init__()
+class Drain(Node):
+
+    _settings = dict(
+        inputs=False,
+    )
+
+    def __init__(self, transistor: 'Transistor', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transistor = transistor
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} {self.transistor}={self.signal}>'
+
+    def update_signal(self) -> None:
+        self.transistor.source.update_signal()
+        self.transistor.gate.update_signal()
+        if self.transistor.is_open:
+            self._signal.set(self.transistor.source.signal.value)
+        else:
+            self._signal.set(-1)
+
+
+class Gate(Node):
+
+    _settings = dict(
+        inputs_limit=1,
+        outputs=False,
+    )
+
+    def __init__(self, transistor: 'Transistor', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transistor = transistor
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} {self.transistor}={self.signal}>'
 
 
 class Transistor:
@@ -30,8 +60,7 @@ class Transistor:
         number: int,
         canal_width: int = 6,
         canal_length: int = 9999,
-        gate: SignalProducer = None,
-        sources: Iterable[SignalHolder] = (),
+        gate: Node = None,
     ) -> None:
         # scheme designation
         self.type = TransistorType.resolve(typ)
@@ -42,32 +71,26 @@ class Transistor:
         self.canal_width = canal_width
 
         # connections
-        self.gate = gate  # затвор
+        self.gate = Gate(self)  # затвор
         self.drain = Drain(self)  # сток
-        self.source = Source(self, *sources)  # исток
-
-    def __repr__(self):
-        return (
-            f'<{self.__class__.__name__} {self.type}{self.number} '
-            f'({self.canal_width}) {{{self.gate if self.gate else ""}}}>'
-        )
+        self.source = Source(self)  # исток
+        if gate:
+            gate.connect_to(self.gate)
 
     def __str__(self):
-        inn = f' <- {self.gate}' if isinstance(self.gate, Input) else ''
-        return f'T{self.type}{self.number} ({self.canal_width}){inn}'
+        return f'T{self.type}{self.number}'
 
-    def update(self):
-        if self.is_open:
-            self.drain.set(self.source.signal.value)
-        else:
-            self.drain.set(-1)
+    def __repr__(self):
+        return f'<{str(self)}>'
 
-    def add_input(self, to_add: SignalHolder):
-        self.source.add_input(to_add)
-
-    @property
-    def signal(self) -> Signal:
-        return self.drain.signal
+    def print_info(self):
+        inputs = []
+        for conn in self.source.inputs.connections:
+            inputs.append(f'{conn}')
+        print(self, ':')
+        print('Source: ', ' '.join(inputs), '->', self.source.signal.value)
+        print('Gate: ', f'{self.gate} -> {self.gate.signal.value} -- {"closed" if not self.is_open else "open"}')
+        print('Drain: ', self.drain, '->', self.drain.signal.value)
 
     @property
     def is_open(self):

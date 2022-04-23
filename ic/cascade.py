@@ -1,27 +1,36 @@
 from typing import Iterable, Optional, List, Union, Dict, Tuple
 
-from .signal import SignalAcceptor, AcceptorProducer, NamedAcceptorProducer
+from .node import Node, NamedNode
+from .io import E, G
 from .transistor import Transistor, TransistorTypeT
 from .transistor.utils import TransistorChecker, is_transistor
 
 
-class CascadeOutput(AcceptorProducer):
-    def __init__(self, cascade: 'Cascade', transistors: Iterable[int] = (), **kwargs):
+class CascadeOutput(Node):
+    def __init__(self, cascade: 'Cascade', transistors_nums: Iterable[int] = (), *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._cascade = cascade
-        transistors = [self._cascade.transistor(t, i) for i in transistors for t in 'pn']
-        super().__init__(inputs=(t.drain for t in transistors), **kwargs)
+        transistors = [self._cascade.transistor(t, i) for i in transistors_nums for t in 'pn']
+        for t in transistors:
+            t.drain.connect_to(self)
+
+    def __repr__(self):
+        return f'<{self._cascade} output={self.signal.value}>'
+
+    def update_signal(self):
+        super().update_signal()
 
 
-class CascadeInput(NamedAcceptorProducer):
-    def __init__(self, cascade: 'Cascade', name: str, transistors_nums: Iterable[int] = (), **kwargs):
-        super().__init__(name=name, **kwargs)
+class CascadeInput(NamedNode):
+    def __init__(self, cascade: 'Cascade', name: str, transistors_nums: Iterable[int] = (), *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
         self._cascade = cascade
-        self._transistors = [self._cascade.transistor(t, i) for i in transistors_nums for t in 'pn']
-        for t in self._transistors:
-            t.gate = self
+        transistors = [self._cascade.transistor(t, i) for i in transistors_nums for t in 'pn']
+        for t in transistors:
+            self.connect_to(t.gate)
 
-    def update(self):
-        self._cascade.update()
+    def __repr__(self):
+        return f'<{self._cascade} input {self.name}>'
 
 
 class CascadeInputs:
@@ -59,8 +68,8 @@ class Cascade:
         self.name = name
         self._scheme = scheme
 
-        self._inputs = CascadeInputs(self, inputs or {})
-        self._output = CascadeOutput(self)
+        self.inputs = CascadeInputs(self, inputs or {})
+        self.output = CascadeOutput(self)
 
         self._connect_transistors()
 
@@ -87,36 +96,46 @@ class Cascade:
         return transistors
 
     def input(self, name: str) -> CascadeInput:
-        return self._inputs.get(name)
+        return self.inputs.get(name)
 
     def inputs(self) -> Tuple[CascadeInput]:
-        ins = tuple(inp for __name, inp in self._inputs)
+        ins = tuple(inp for __name, inp in self.inputs)
         return ins
 
-    def connect_to(self, *out: SignalAcceptor):
+    def connect_to(self, *out: Node):
         for o in out:
-            o.add_input(self._output)
+            self.output.connect_to(o)
 
     def is_autonomous(self):
-        return len(self._inputs) == 0
-
-    def update(self):
-        for transistor, outputs in self._scheme.items():
-            return
-            if not is_transistor(transistor):
-                continue
-            transistor.update()
+        return len(self.inputs) == 0
 
     def out_capacity(self):
         '''сумма ширин каналов тразисторов, подключенных к выходу каскада.'''
+        pass
 
     def _connect_transistors(self):
-        for ts, transistors in self._scheme.items():
+        self._validate_scheme()
+
+        for daddy, transistors in self._scheme.items():
             if not transistors:
-                if not is_transistor(ts):
-                    raise RuntimeError(f'Constant source signal {ts} must be connected to transistor(s).')
-                self._output.add_input(ts.drain)
+                daddy.drain.connect_to(self.output)
                 continue
-            for t in transistors:
-                producer = ts if not is_transistor(ts) else ts.drain
-                t.source.add_input(producer)
+            for boy in transistors:
+                daddy.drain.connect_to(boy.source)
+
+        for daddy in self._scheme.keys():
+            if daddy.source.inputs:
+                continue
+            src = G if daddy.type == 'n' else E
+            src.connect_to(daddy.source)
+
+    def _validate_scheme(self):
+        for k, v in self._scheme.items():
+            if not is_transistor(k):
+                raise ValueError(f'{k} is not transistor!')
+            if not v:
+                continue
+            for i in v:
+                if not is_transistor(k):
+                    raise ValueError(f'{i} is not transistor!')
+

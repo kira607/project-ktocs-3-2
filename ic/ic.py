@@ -2,11 +2,9 @@ from typing import Iterable, Tuple, Optional
 
 from .binary_util import bits
 from .cascade import Cascade
-from .signal import E, G
-from .transistor import Transistor, TransistorTypeT
 from .io import Input, Output
+from .transistor import Transistor, TransistorTypeT
 from .transistor.utils import TransistorChecker
-from .utils import Timer
 
 
 class IC:
@@ -22,6 +20,7 @@ class IC:
         self._inputs = dict(((i.name, i) for i in inputs))
         self._outputs = dict(((o.name, o) for o in outputs))
         self._cascades = dict(((c.name, c) for c in cascades))
+        self.change_state()
         self._update()
 
     def inputs(self) -> Tuple[Input]:
@@ -56,12 +55,14 @@ class IC:
         return None
 
     def change_state(self, **kwargs) -> None:
+        if not kwargs:
+            kwargs = dict((input_name, 0) for input_name in self._inputs)
         inputs_names = tuple(self._inputs.keys())
         for input_name, input_signal in kwargs.items():
             input_ = self.input(input_name)
             if not input_:
                 raise ValueError(f'Wrong input name: "{input_name}". Expected on of: {inputs_names}')
-            input_.set(input_signal)
+            input_.signal.set(input_signal)
         self._update()
 
     def get_table(self):
@@ -79,12 +80,6 @@ class IC:
             table += '\n'
         return table
 
-    def _update_forward(self):
-        E.update()
-        G.update()
-
-    @Timer('update state of IC', start_message=False)
     def _update(self):
         for o in self._outputs.values():
-            o.update()
-        return self._outputs
+            o.update_signal()

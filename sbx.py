@@ -1,18 +1,23 @@
-from ic.io import Input, Output
-from ic.signal import E, G
-from ic.transistor import Transistor
+from ic.node import Node
 
 
 def main():
-    x = Input('X')
-    y = Output('Y')
-    n1 = Transistor('n', 1, gate=x)
-    p1 = Transistor('p', 1, gate=x)
-    p1.source.add_input(E)
-    n1.source.add_input(G)
-    p1.drain.add_output(y)
-    n1.drain.add_output(y)
-    return
+    n = Node(1)
+    print(n.signal)
+
+
+def update_signal(self):
+    if self.signal.is_locked():
+        return self.signal.value
+    if not self._settings['inputs']:
+        return self.signal.value
+    if not self.inputs.check():
+        raise RuntimeError('Not connected!')
+    for node in self.inputs:
+        node.update_signal()
+        if node.signal.value > self.signal.value:
+            self.signal.set(node.signal.value)
+    return self.signal.value
 
 
 if __name__ == '__main__':
