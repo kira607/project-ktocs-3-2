@@ -1,5 +1,4 @@
-from ..transistor import Transistor
-from .is_transistor import is_transistor
+from .transistor import Transistor
 
 
 class TransistorChecker:
@@ -20,12 +19,12 @@ class TransistorChecker:
         self._is_active = is_active
 
     def check(self, transistor: Transistor) -> bool:
-        if not is_transistor(transistor):
+        if not isinstance(transistor, Transistor):
             return False
         return (
             self._check_is_open(transistor)
             and self._check_type(transistor)
-            # and self._check_active(transistor)
+            and self._check_active(transistor)
         )
 
     def _check_is_open(self, transistor):
@@ -45,6 +44,6 @@ class TransistorChecker:
         if self._is_active == 'any':
             return True
         elif self._is_active == 'active':
-            pass
+            return transistor.active
         elif self._is_active == 'not active':
-            pass
+            return not transistor.active

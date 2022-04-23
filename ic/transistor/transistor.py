@@ -1,4 +1,5 @@
 from ic.node import Node
+from ic.io import Output
 from .transistor_type import TransistorType, TransistorTypeT
 
 
@@ -52,6 +53,9 @@ class Gate(Node):
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.transistor}={self.signal}>'
 
+    def is_connected_to_output(self):
+        return self.transistor.is_connected_to_output()
+
 
 class Transistor:
     def __init__(
@@ -83,14 +87,21 @@ class Transistor:
     def __repr__(self):
         return f'<{str(self)}>'
 
-    def print_info(self):
-        inputs = []
-        for conn in self.source.inputs.connections:
-            inputs.append(f'{conn}')
-        print(self, ':')
-        print('Source: ', ' '.join(inputs), '->', self.source.signal.value)
-        print('Gate: ', f'{self.gate} -> {self.gate.signal.value} -- {"closed" if not self.is_open else "open"}')
-        print('Drain: ', self.drain, '->', self.drain.signal.value)
+    @property
+    def active(self):
+        return self.is_connected_to_output()
+
+    def is_connected_to_output(self):
+        if not self.is_open:
+            return False
+        for child in self.drain.outputs.connections:
+            if isinstance(child, Source):
+                if child.transistor.is_connected_to_output():
+                    return True
+            else:
+                if child.is_connected_to_output():
+                    return True
+        return False
 
     @property
     def is_open(self):

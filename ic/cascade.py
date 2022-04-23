@@ -1,9 +1,9 @@
 from typing import Iterable, Optional, List, Union, Dict, Tuple
 
-from .node import Node, NamedNode
+from .transistor.checker import TransistorChecker
 from .io import E, G
+from .node import Node, NamedNode
 from .transistor import Transistor, TransistorTypeT
-from .transistor.utils import TransistorChecker, is_transistor
 
 
 class CascadeOutput(Node):
@@ -20,6 +20,12 @@ class CascadeOutput(Node):
     def update_signal(self):
         super().update_signal()
 
+    def is_connected_to_output(self):
+        for child in self.outputs.connections:
+            if child.is_connected_to_output():
+                return True
+        return False
+
 
 class CascadeInput(NamedNode):
     def __init__(self, cascade: 'Cascade', name: str, transistors_nums: Iterable[int] = (), *args, **kwargs):
@@ -31,6 +37,12 @@ class CascadeInput(NamedNode):
 
     def __repr__(self):
         return f'<{self._cascade} input {self.name}>'
+
+    def is_connected_to_output(self):
+        for child in self.outputs.connections:
+            if child.is_connected_to_output():
+                return True
+        return False
 
 
 class CascadeInputs:
@@ -78,7 +90,7 @@ class Cascade:
 
     def transistor(self, t: TransistorTypeT, num: int) -> Optional[Transistor]:
         for node in self._scheme:
-            if is_transistor(node) and node.type == t and node.number == num:
+            if isinstance(node, Transistor) and node.type == t and node.number == num:
                 return node
         return None
 
@@ -131,11 +143,11 @@ class Cascade:
 
     def _validate_scheme(self):
         for k, v in self._scheme.items():
-            if not is_transistor(k):
+            if not isinstance(k, Transistor):
                 raise ValueError(f'{k} is not transistor!')
             if not v:
                 continue
             for i in v:
-                if not is_transistor(k):
+                if not isinstance(k, Transistor):
                     raise ValueError(f'{i} is not transistor!')
 

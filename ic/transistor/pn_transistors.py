@@ -1,4 +1,4 @@
-from ..transistor import Transistor
+from .transistor import Transistor
 
 
 def pn_transistors(num: int, gate=None):

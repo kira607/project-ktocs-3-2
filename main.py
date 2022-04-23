@@ -98,8 +98,7 @@ ic = IC(
 
 
 def main():
-    ic.change_state(X=1, Y=1, C=1)
-    log.info(ic.get_table())
+    print(ic.get_table())
 
 
 if __name__ == '__main__':

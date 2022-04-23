@@ -3,8 +3,9 @@ from typing import Iterable, Tuple, Optional
 from .binary_util import bits
 from .cascade import Cascade
 from .io import Input, Output
+from .table import Table
 from .transistor import Transistor, TransistorTypeT
-from .transistor.utils import TransistorChecker
+from .transistor import TransistorChecker
 
 
 class IC:
@@ -65,20 +66,26 @@ class IC:
             input_.signal.set(input_signal)
         self._update()
 
-    def get_table(self):
-        table = '  '.join(self._inputs.keys()) + '  '
-        table += '  '.join(self._outputs.keys())
-        table += '\n'
-        states = bits(len(self._inputs))
-        for state in states:
+    def all_states(self):
+        states = []
+        for state in bits(len(self._inputs)):
             s = {}
             for i, name in enumerate(self._inputs.keys(), start=0):
                 s[name] = state[i]
-            self.change_state(**s)
-            table += '  '.join(str(input.signal.value) for input in self._inputs.values()) + '  '
-            table += '  '.join(str(output.signal.value) for output in self._outputs.values())
-            table += '\n'
-        return table
+            states.append(s)
+        return states
+
+    def get_table(self):
+        table = Table(len(self._inputs) + len(self._outputs) + 2)
+        table.set_header(*self._inputs.keys(), *self._outputs.keys(), 'Open transistors', 'Active transistors')
+        for state in self.all_states():
+            self.change_state(**state)
+            row = [input.signal.value for input in self._inputs.values()]
+            row.extend([output.signal.value for output in self._outputs.values()])
+            row.append(self.transistors(TransistorChecker(is_open="open")))
+            row.append(self.transistors(TransistorChecker(is_open="open", is_active="active")))
+            table.add_row(*row)
+        return table.render()
 
     def _update(self):
         for o in self._outputs.values():

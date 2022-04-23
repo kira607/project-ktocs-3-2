@@ -13,3 +13,7 @@ class Output(NamedNode):
     def __init__(self, name: str, connected: Input, *args, **kwargs):
         super().__init__(name, *args, **kwargs)
         self._connected = connected
+
+    def is_connected_to_output(self):
+        return True
+
